@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>משחק כפל וחילוק של גלי המלפופה</title>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --shadow: 0 10px 25px rgba(0,0,0,0.10);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+    }
+
+    /* קונפטי */
+    #confetti {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 9999;
+      display: none;
+    }
+
+    .card {
+      background: var(--card);
+      width: min(520px, 100%);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 6px 0 10px;
+      font-size: clamp(18px, 4.8vw, 28px);
+    }
+
+    .sub {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: clamp(13px, 3.4vw, 15px);
+      line-height: 1.4;
+    }
+
+    .top {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .avatarWrap {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 12px;
+      align-items: center;
+      text-align: right;
+    }
+
+    .avatar {
+      height: 110px;
+      width: 110px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-size: 56px;
+      background: #eef2ff;
+      user-select: none;
+      transition: transform 220ms ease;
+    }
+
+    .levelBox { text-align: right; }
+
+    .levelTitle {
+      font-weight: 700;
+      font-size: clamp(14px, 3.6vw, 16px);
+      margin-bottom: 6px;
+    }
+
+    .progressLine {
+      height: 10px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      overflow: hidden;
+    }
+
+    .progressFill {
+      height: 100%;
+      width: 0%;
+      background: #22c55e;
+      transition: width 250ms ease;
+    }
+
+    .progressMeta {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .question {
+      font-size: clamp(26px, 7vw, 36px);
+      margin: 16px 0 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: #f3f4f6;
+      /* מציג את התרגיל משמאל לימין כדי שיראה נכון */
+      direction: ltr;
+      unicode-bidi: bidi-override;
+    }
+
+    .inputRow {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    input {
+      font-size: clamp(18px, 5vw, 22px);
+      padding: 10px 12px;
+      width: min(180px, 60vw);
+      text-align: center;
+      border-radius: 12px;
+      border: 1px solid #d1d5db;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #93c5fd;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+    }
+
+    button {
+      font-size: clamp(16px, 4.6vw, 18px);
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 12px;
+      cursor: pointer;
+      background: #2563eb;
+      color: white;
+      width: min(220px, 70vw);
+      touch-action: manipulation;
+    }
+
+    button:active { transform: translateY(1px); }
+
+    .feedback {
+      font-size: clamp(16px, 4.6vw, 20px);
+      margin-top: 12px;
+      min-height: 28px;
+    }
+
+    .score {
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      background: #f3f4f6;
+      padding: 6px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .mini {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 12px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 420px) {
+      .avatarWrap { grid-template-columns: 86px 1fr; }
+      .avatar { width: 86px; height: 86px; font-size: 46px; }
+      .card { padding: 14px; }
+      button { width: 100%; }
+      input { width: 100%; }
+      .inputRow { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="confetti"></canvas>
+
+  <div class="card">
+    <h1>🎯 משחק כפל וחילוק של גלי המלפופה</h1>
+    <p class="sub">מטרה: תשובות נכונות מקדמות את הדמות שלב-שלב. 5 נכונות = עלייה שלב 🎉</p>
+
+    <div class="top">
+      <div class="avatarWrap">
+        <div class="avatar" id="avatar">🐣</div>
+        <div class="levelBox">
+          <div class="levelTitle" id="levelTitle">שלב 1 • מתחילים</div>
+          <div class="progressLine" aria-label="התקדמות לשלב הבא">
+            <div class="progressFill" id="progressFill"></div>
+          </div>
+          <div class="progressMeta">
+            <span id="progressText">0/5</span>
+            <span id="modeText">קושי: 1</span>
+            <span id="runText">סבב: 1</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="question" id="question"></div>
+
+    <div class="inputRow">
+      <input type="number" id="answer" inputmode="numeric" autocomplete="off" />
+      <button id="checkBtn" onclick="checkAnswer()">בדיקה</button>
+    </div>
+
+    <div class="feedback" id="feedback"></div>
+
+    <div class="score">
+      <div class="pill" id="scorePill">ניקוד: 0 מתוך 0</div>
+      <div class="pill" id="streakPill">רצף נכון: 0</div>
+    </div>
+
+    <div class="mini">טיפ להורה: אם קשה—תעברו ללוח אחד (למשל רק כפול 2/3) ואז נחזור למעורב.</div>
+  </div>
+
+  <script>
+    // ====== מצב משחק ======
+    let a, b, correct;
+    let score = 0;
+    let total = 0;
+    let streak = 0;
+
+    // התקדמות דמות
+    const neededForLevelUp = 5; // כמה נכונות כדי לעלות שלב
+    let correctThisLevel = 0;
+    let level = 1;
+
+    // דרגות קושי / סבבים
+    // בכל סבב מעלים את הטווח (כיתה ג'—עדיין נשארים נגישים)
+    let difficultyTier = 0; // 0 = קל
+    let run = 1;
+
+    const levels = [
+      { title: 'שלב 1 • מתחילים', avatar: '🐣' },
+      { title: 'שלב 2 • מתחזקים', avatar: '🐤' },
+      { title: 'שלב 3 • מתקדמים', avatar: '🐥' },
+      { title: 'שלב 4 • אלופים', avatar: '🦉' },
+      { title: 'שלב 5 • מאסטרים', avatar: '🐉' }
+    ];
+
+    // ====== UI helpers ======
+    function setText(id, text) {
+      document.getElementById(id).textContent = text;
+    }
+
+    function updateProgressUI() {
+      const idx = Math.min(level - 1, levels.length - 1);
+      setText('levelTitle', levels[idx].title);
+      setText('avatar', levels[idx].avatar);
+
+      setText('progressText', `${correctThisLevel}/${neededForLevelUp}`);
+      const pct = (correctThisLevel / neededForLevelUp) * 100;
+      document.getElementById('progressFill').style.width = `${Math.min(pct, 100)}%`;
+
+      setText('scorePill', `ניקוד: ${score} מתוך ${total}`);
+      setText('streakPill', `רצף נכון: ${streak}`);
+      setText('modeText', `קושי: ${difficultyTier + 1}`);
+      setText('runText', `סבב: ${run}`);
+    }
+
+    function celebrateLevelUp() {
+      const avatar = document.getElementById('avatar');
+      avatar.style.transform = 'scale(1.12)';
+      setTimeout(() => (avatar.style.transform = 'scale(1)'), 220);
+    }
+
+    // ====== קונפטי (canvas, בלי ספריות) ======
+    const confettiCanvas = document.getElementById('confetti');
+    const confettiCtx = confettiCanvas.getContext('2d');
+    let confettiParticles = [];
+    let confettiRunning = false;
+
+    function resizeConfetti() {
+      confettiCanvas.width = Math.floor(window.innerWidth * devicePixelRatio);
+      confettiCanvas.height = Math.floor(window.innerHeight * devicePixelRatio);
+      confettiCanvas.style.width = window.innerWidth + 'px';
+      confettiCanvas.style.height = window.innerHeight + 'px';
+      confettiCtx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    }
+
+    window.addEventListener('resize', () => {
+      if (confettiRunning) resizeConfetti();
+    });
+
+    function rand(min, max) { return Math.random() * (max - min) + min; }
+
+    function launchConfetti(durationMs = 1800) {
+      confettiCanvas.style.display = 'block';
+      confettiRunning = true;
+      resizeConfetti();
+
+      const colors = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7', '#06b6d4'];
+      confettiParticles = Array.from({ length: 140 }, () => ({
+        x: rand(0, window.innerWidth),
+        y: rand(-30, window.innerHeight * 0.25),
+        vx: rand(-2.2, 2.2),
+        vy: rand(2.0, 6.0),
+        size: rand(5, 10),
+        rot: rand(0, Math.PI * 2),
+        vr: rand(-0.2, 0.2),
+        color: colors[Math.floor(rand(0, colors.length))],
+        life: rand(0.6, 1.0)
+      }));
+
+      const start = performance.now();
+      function tick(now) {
+        const t = now - start;
+        confettiCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+        for (const p of confettiParticles) {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.05; // "כבידה"
+          p.rot += p.vr;
+
+          // מעט דעיכה
+          p.life -= 0.004;
+
+          confettiCtx.save();
+          confettiCtx.translate(p.x, p.y);
+          confettiCtx.rotate(p.rot);
+          confettiCtx.globalAlpha = Math.max(0, p.life);
+          confettiCtx.fillStyle = p.color;
+          confettiCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.8);
+          confettiCtx.restore();
+        }
+
+        // מסננים חלקיקים שנגמרו/יצאו
+        confettiParticles = confettiParticles.filter(p => p.life > 0 && p.y < window.innerHeight + 60);
+
+        if (t < durationMs && confettiParticles.length > 0) {
+          requestAnimationFrame(tick);
+        } else {
+          confettiCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+          confettiCanvas.style.display = 'none';
+          confettiRunning = false;
+        }
+      }
+
+      requestAnimationFrame(tick);
+    }
+
+    // ====== יצירת שאלה ======
+    function maxNumberForDifficulty() {
+      // 10, 12, 14, 16, ... (עם תקרת בטיחות)
+      return Math.min(20, 10 + difficultyTier * 2);
+    }
+
+    function newQuestion() {
+      setText('feedback', '');
+      const ans = document.getElementById('answer');
+      ans.value = '';
+      ans.focus();
+
+      const isMultiply = Math.random() < 0.5;
+      const maxN = maxNumberForDifficulty();
+
+      a = Math.floor(Math.random() * maxN) + 1; // 1..maxN
+      b = Math.floor(Math.random() * maxN) + 1; // 1..maxN
+
+      if (isMultiply) {
+        correct = a * b;
+        setText('question', `${a} × ${b} = ?`);
+      } else {
+        // חילוק בלי שברים: (a*b) ÷ b = a
+        correct = a;
+        setText('question', `${a * b} ÷ ${b} = ?`);
+      }
+
+      updateProgressUI();
+    }
+
+    // ====== סיום שלב 5 + מעבר לסבב הבא ======
+    function masteredRun() {
+      // קונפטי 🎉
+      launchConfetti(1900);
+      setText('feedback', '🎊 סיימת את שלב 5 (מאסטרים)! מתחילים סבב חדש בקושי גבוה יותר!');
+
+      // סבב חדש: מתחילים מהתחלה, קושי עולה
+      difficultyTier++;
+      run++;
+      level = 1;
+      correctThisLevel = 0;
+      streak = 0;
+
+      updateProgressUI();
+      setTimeout(newQuestion, 1200);
+    }
+
+    // ====== בדיקה ======
+    function checkAnswer() {
+      const input = document.getElementById('answer');
+      if (input.value.trim() === '') return;
+
+      const userAnswer = Number(input.value);
+      total++;
+
+      if (userAnswer === correct) {
+        score++;
+        streak++;
+        correctThisLevel++;
+        setText('feedback', '✅ נכון! כל הכבוד!');
+
+        if (correctThisLevel >= neededForLevelUp) {
+          // אם זו עליית שלב מתוך "מאסטרים" (שלב 5) -> סבב חדש + קונפטי
+          if (level >= levels.length) {
+            celebrateLevelUp();
+            updateProgressUI();
+            setTimeout(masteredRun, 350);
+            return;
+          }
+
+          // אחרת—עולים שלב רגיל
+          level++;
+          correctThisLevel = 0;
+          celebrateLevelUp();
+          setText('feedback', '🎉 עלית שלב! ממשיכים!');
+        }
+      } else {
+        streak = 0;
+        setText('feedback', `❌ לא נכון. התשובה היא ${correct}`);
+      }
+
+      updateProgressUI();
+      setTimeout(newQuestion, 900);
+    }
+
+    // Enter כדי לבדוק
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('checkBtn').click();
+      }
+    });
+
+    // init
+    updateProgressUI();
+    newQuestion();
+  </script>
+</body>
+</html>
