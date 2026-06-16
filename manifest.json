@@ -1,0 +1,17 @@
+{
+  "name": "אלכס מלמד כפל",
+  "short_name": "אלכס מלמד כפל",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "/gali_math/",
+  "scope": "/gali_math/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#3d245f",
+  "theme_color": "#5b3a8c",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
