@@ -210,6 +210,8 @@ function getWeight(a,b){
   return Math.max(0.4, w);
 }
 function recordFact(a,b,correct){
+  // only track the real 1–10 multiplication table for mastery/difficulty
+  if(a<1||a>10||b<1||b>10) return;
   const k=factKey(a,b);
   const f=STORE.facts[k]||{right:0,wrong:0};
   if(correct)f.right++; else f.wrong++;
@@ -249,6 +251,25 @@ function makeOptions(ans,maxF){
   return [...set].sort(()=>Math.random()-0.5);
 }
 
+// distractors for ×10/×100/×1000: target the classic "wrong number of zeros" mistake
+function makeScaleOptions(n,mult){
+  const ans=n*mult;
+  const set=new Set([ans]);
+  // one-too-few and one-too-many zeros
+  if(mult>=100) set.add(n*(mult/10));
+  set.add(n*(mult*10));
+  if(mult>=1000) set.add(n*(mult/100));
+  // a near-miss on the base number (same scale)
+  let g=0;
+  while(set.size<4 && g++<40){
+    const d=(n+(Math.floor(Math.random()*5)-2));
+    if(d>1 && d!==n) set.add(d*mult);
+  }
+  // last-resort fillers
+  while(set.size<4){ set.add(ans + mult*set.size); }
+  return [...set].sort(()=>Math.random()-0.5);
+}
+
 const WORD_TEMPLATES = [
   (a,b)=>`ל${KID} יש <b>${a}</b> קופסאות, ובכל קופסה <b>${b}</b> כדורי צמר. כמה כדורים בסך הכל?`,
   (a,b)=>`${KID} קופץ <b>${a}</b> פעמים, ובכל קפיצה <b>${b}</b> מטרים. כמה מטרים עבר?`,
@@ -261,6 +282,9 @@ const WORD_TEMPLATES = [
 let ROUND, idx, score, streak, current, locked;
 let recordShownThisRound = false;
 const ROUND_LEN = 10;
+
+// format numbers with thousands separators (e.g. 180000 -> 180,000)
+function fmt(n){ return Number(n).toLocaleString('en-US'); }
 
 function startQuiz(){
   // unlock audio on this user gesture (mobile requirement)
@@ -275,6 +299,35 @@ function nextQuestion(){
   if(idx>=ROUND_LEN){return finishRound();}
   locked=false;
   const maxF=maxFactor();
+
+  // ~25% of questions are place-value scaling (×10 / ×100 / ×1000)
+  const isScale = Math.random()<0.25;
+  if(isScale){
+    const scales=[10,100,1000];
+    const mult=scales[Math.floor(Math.random()*scales.length)];
+    const n=2+Math.floor(Math.random()*98);   // any number 2–99
+    const ans=n*mult;
+    current={a:n,b:mult,ans,isWord:false,isScale:true};
+
+    document.getElementById('qcount').textContent=`שאלה ${idx+1} מתוך ${ROUND_LEN}`;
+    document.getElementById('progfill').style.width=(idx/ROUND_LEN*100)+'%';
+    renderStreak();
+    document.getElementById('qtype').textContent="🔟 כפל בעשרות";
+    document.getElementById('qbody').innerHTML=`<div class="qnum">${fmt(n)} × ${fmt(mult)}</div>`;
+
+    const opts=makeScaleOptions(n,mult);
+    const wrap=document.getElementById('answers');
+    wrap.innerHTML='';
+    opts.forEach(o=>{
+      const btn=document.createElement('button');
+      btn.className='ans';btn.textContent=fmt(o);
+      btn.dataset.val=o;
+      btn.onclick=()=>answer(btn,o);
+      wrap.appendChild(btn);
+    });
+    return;
+  }
+
   const pick=weightedPick(maxF);
   const a=pick.a, b=pick.b, ans=a*b;
   // ~40% word problems, but never on factor 1 (too trivial in words)
@@ -294,8 +347,8 @@ function nextQuestion(){
   }else{
     qtype.textContent="✖️ תרגיל";
     let dots='';
-    // visual dot array only for smaller products to aid understanding
-    if(a<=6&&b<=6){
+    // visual dot array to aid understanding — show whenever it stays countable
+    if(a<=10 && b<=10 && a*b<=60){
       let groups='';
       for(let i=0;i<a;i++){
         let g='';for(let j=0;j<b;j++)g+='<div class="dot"></div>';
@@ -303,7 +356,7 @@ function nextQuestion(){
       }
       dots=`<div class="dots">${groups}</div>`;
     }
-    qbody.innerHTML=`<div class="qnum">${a} × ${b}</div>${dots}`;
+    qbody.innerHTML=`<div class="qnum">${fmt(a)} × ${fmt(b)}</div>${dots}`;
   }
 
   const opts=makeOptions(ans,maxF);
@@ -311,7 +364,8 @@ function nextQuestion(){
   wrap.innerHTML='';
   opts.forEach(o=>{
     const btn=document.createElement('button');
-    btn.className='ans';btn.textContent=o;
+    btn.className='ans';btn.textContent=fmt(o);
+    btn.dataset.val=o;
     btn.onclick=()=>answer(btn,o);
     wrap.appendChild(btn);
   });
@@ -354,7 +408,7 @@ function answer(btn,val){
     streak=0; STORE.streak=0; beep(false);
     // reveal the correct one
     [...document.querySelectorAll('.ans')].forEach(x=>{
-      if(parseInt(x.textContent)===ans)x.classList.add('right');
+      if(Number(x.dataset.val)===ans)x.classList.add('right');
     });
     saveStore();
     setTimeout(()=>{idx++;nextQuestion();},1500);
@@ -590,6 +644,7 @@ function updateHome(){
   const acc=STORE.totalSeen?Math.round(STORE.totalCorrect/STORE.totalSeen*100):0;
   const lvl=maxFactor();
   document.getElementById('homeStats').innerHTML=
+    `<span class="chip">✅ תשובות נכונות: ${STORE.totalCorrect}</span>`+
     `<span class="chip">⭐ סבבים: ${STORE.rounds}</span>`+
     `<span class="chip">🎯 דיוק: ${acc}%</span>`+
     `<span class="chip">🔥 שיא רצף: ${STORE.bestStreak}</span>`+
